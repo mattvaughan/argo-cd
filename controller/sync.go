@@ -10,8 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	cdcommon "github.com/argoproj/argo-cd/v2/common"
-
 	"github.com/argoproj/gitops-engine/pkg/sync"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
@@ -315,7 +313,7 @@ func (m *appStateManager) SyncAppState(app *v1alpha1.Application, state *v1alpha
 		sync.WithPrunePropagationPolicy(&prunePropagationPolicy),
 		sync.WithReplace(syncOp.SyncOptions.HasOption(common.SyncOptionReplace)),
 		sync.WithServerSideApply(syncOp.SyncOptions.HasOption(common.SyncOptionServerSideApply)),
-		sync.WithServerSideApplyManager(cdcommon.ArgoCDSSAManager),
+    sync.WithServerSideApplyManager(app.GetName()),
 	}
 
 	if syncOp.SyncOptions.HasOption("CreateNamespace=true") {
