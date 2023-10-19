@@ -313,7 +313,7 @@ func (m *appStateManager) SyncAppState(app *v1alpha1.Application, state *v1alpha
 		sync.WithPrunePropagationPolicy(&prunePropagationPolicy),
 		sync.WithReplace(syncOp.SyncOptions.HasOption(common.SyncOptionReplace)),
 		sync.WithServerSideApply(syncOp.SyncOptions.HasOption(common.SyncOptionServerSideApply)),
-    sync.WithServerSideApplyManager(app.GetName()),
+		sync.WithServerSideApplyManager(app.GetName()),
 	}
 
 	if syncOp.SyncOptions.HasOption("CreateNamespace=true") {
