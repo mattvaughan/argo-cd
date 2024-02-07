@@ -8,6 +8,29 @@ To quote the [Kubernetes docs][1]:
 
 > A fully specified intent is a partial object that only includes the fields and values for which the user has an opinion. That intent either creates a new object (using default values for unspecified fields), or is combined, by the API server, with the existing object.
 
+## Example
+
+Consider the case where you're working on a new feature for your app. You'd like to review these changes without disturbing your staging environment, so you use an `ApplicationSet` with a pull request generator to create [review apps][3] dynamically. These review apps configure a central Consul `IngressGateway`. Each review app needs to add a service to the `IngressGateway` upon creation, and remove that service upon deletion.
+
+```yaml
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: IngressGateway
+metadata:
+  name: review-app-ingress-gateway
+  namespace: default
+spec:
+  listeners:
+  - port: 443
+    protocol: http
+    services:
+    - name: review-app-1
+      namespace: my-cool-app
+    - name: review-app-2
+      namespace: my-groovy-app
+    - name: review-app-3
+      namespace: my-incredible-app
+```
+
 ---
 
 ## Open Questions
@@ -53,7 +76,15 @@ N/A
 
 ## Proposal
 
-Change the Server Side Apply field manager from `argocd-controller` to the Application name. Optionally, allow users to set the field manager to whatever they choose. This will allow Applications to apply partial specs that don't overwrite fields they don't own.
+1. Add a new sync option named `FieldManager` that accepts a string up to 128 characters in length. This can only be set on an individual resource. Don't allow this sync option to be set on the Application: accidentally overriding the resource-level field manager may have undesirable side effects like leaving orphaned fields behind. When a sync is performed for a resource and server side-apply is enabled, it uses the `FieldManager` if it is set, otherwise it defaults to the hard-coded `argocd-controller` field manager.
+
+1. Like other sync options, add a corresponding text field in the ArgoCD UI to let users specify a field manager for a server-side apply sync. This text field should only be visible when a single resource is being synced.
+
+1. Change the removal behavior for shared resources. When a resource with a custom field manager is "removed", it instead removes only the fields managed by its field manager from the shared resource by sending an empty "fully specified intent" using server-side apply. You can fully delete a shared resource by setting `Prune=true` at the resource level.
+
+1. Add documentation suggesting that users might want to consider changing the permissions on the ArgoCD role to disallow the `delete` and `update` verbs on shared resources. Server-side apply will always use `patch`, and removing `delete` and `update` helps prevent users from errantly wiping out changes made from other Applications.
+
+1. Add documentation that references the Kubernetes docs to show users how to properly define their Custom Resource Definition so that patches merge with expected results. For example, should a particular array on the resource be replaced or added to when patching?
 
 ### Use cases
 
@@ -61,11 +92,11 @@ The following use cases should be implemented:
 
 #### [UC-1]: As a user, I would like to manage specific fields on a Kubernetes object shared by other ArgoCD Applications.
 
-Change the Server-Side Apply field manager to be unique to each Application. Eliminate the constant `ArgoCDSSAManager` and replace references with the Application name.
+Change the Server-Side Apply field manager to be set by a sync option, but default to the constant `ArgoCDSSAManager`.
 
 #### [UC-2]: As a user, I would like explict control of which field manager my Application uses for server-side apply.
 
-Add a sync option named `FieldManager` that can be set on the Application or via annotation that controls which field manager is used.
+Add a sync option named `FieldManager` that can be set via annotation on individual resources that controls which field manager is used.
 
 ### Security Considerations
 
@@ -89,3 +120,4 @@ TBD
 
 [1]: https://kubernetes.io/docs/reference/using-api/server-side-apply/
 [2]: https://kubernetes.io/docs/reference/using-api/server-side-apply/#managers
+[3]: https://docs.gitlab.com/ee/ci/review_apps/
